@@ -36,14 +36,14 @@ tools = [
         "type": "function",
         "function": {
             "name": "get_recent_log",
-            "description": "Call this whenever user ask the general question about their system health and logging status. for example, `what is the system today?`",
+            "description": "Call this whenever user ask the general technical question about their system health and logging status. for example, `what is the system today?`. The function should not call when receiving un-related technical questions such as `What's up?`, `Who are you?`",
         },
     },
     {
         "type": "function",
         "function": {
             "name": "get_request_log_by_status",
-            "description": "Call this whenever user ask the specific question about 'status' in their system health  and logging status. for example, `How about good request?`, `How are bad response?`, `What is good request status like?`",
+            "description": "Call this whenever user ask the specific technical question about 'status' in their system health  and logging status. for example, `How about good request?`, `How are bad response?`, `What is good request status like?`. The function should not call when receiving un-related technical questions such as `What's up?`, `Who are you?`",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -57,7 +57,6 @@ tools = [
         },
     },
 ]
-
 predefined_prompt_1 = {"role": "system", "content": "You are a helpful assistant."}
 predefined_prompt_2 = {
     "role": "system",
@@ -107,7 +106,7 @@ async def assistant(request: Request):
             {"role": "user", "content": user_message},
         ],
         tools=tools,
-        tool_choice="required",
+        # tool_choice="required",
     )
 
     result = {
@@ -115,6 +114,9 @@ async def assistant(request: Request):
         "isLog": False,
         "log": None,
     }
+
+    if response.choices[0].message.tool_calls is None:
+        return result
 
     for tool_call in response.choices[0].message.tool_calls:
         if tool_call.function.name == "get_recent_log":
@@ -151,6 +153,12 @@ async def assistant(request: Request):
             )
             result["message"] = response.choices[0].message.content
         else:
-            pass
+            response = azure_openai_client.chat.completions.create(
+                model=deployment_name,
+                messages=[
+                    predefined_prompt_1,
+                ],
+            )
+            result["message"] = response.choices[0].message.content
 
     return result
